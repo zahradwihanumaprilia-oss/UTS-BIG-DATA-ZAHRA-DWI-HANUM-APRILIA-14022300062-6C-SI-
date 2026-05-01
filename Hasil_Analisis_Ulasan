@@ -1,0 +1,42 @@
+from google_play_scraper import reviews, Sort
+import pandas as pd
+from transformers import pipeline
+
+# 1. PROSES SCRAPING (Mengambil ulasan Info BMKG)
+print("Sedang mengambil ulasan dari Info BMKG...")
+result, _ = reviews(
+    'com.Info_BMKG', # ID aplikasi Info BMKG
+    lang='id',
+    country='id',
+    sort=Sort.NEWEST,
+    count=100, # Jumlah ulasan yang diambil
+    filter_score_with=None
+)
+
+# 2. PROSES TRANSFORMER (Load AI IndoRoBERTa)
+print("Memuat model AI IndoRoBERTa untuk membaca data...")
+# Menggunakan model IndoRoBERTa khusus sentimen bahasa Indonesia
+model_name = "w11wo/indonesian-roberta-base-sentiment-classifier"
+nlp_ai = pipeline("sentiment-analysis", model=model_name)
+
+# 3. ANALISIS DATA
+data_final = []
+for review in result:
+    teks = review['content']
+    # AI menganalisis teks ulasan (max 512 karakter)
+    hasil_ai = nlp_ai(teks[:512])[0]
+
+    data_final.append({
+        'userName': review['userName'],
+        'score': review['score'],
+        'at': review['at'],
+        'content': teks,
+        'Analisis_AI': hasil_ai['label'],
+        'Skor_Kepastian': round(hasil_ai['score'], 4)
+    })
+
+# 4. SIMPAN DAN TAMPILKAN
+df = pd.DataFrame(data_final)
+df.to_csv('hasil_uts_bmkg_ai.csv', index=False)
+print("Selesai! File 'hasil_uts_bmkg_ai.csv' telah dibuat.")
+df.head() # Menampilkan pratinjau hasil
